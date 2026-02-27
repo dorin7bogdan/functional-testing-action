@@ -1,0 +1,36 @@
+name: 'OpenText Functional Testing GitHub Action'
+description: 'Enable your GitHub repository to trigger FT test runs.'
+inputs:
+  runType:
+    description: 'Type of run: filesystem | filesystem-parallel | alm | alm-lab'
+    required: false
+    default: "filesystem"
+  testsPath:
+    description: 'Path to the tests directory'
+    required: true
+  timeout:
+    description: 'The number of seconds before the test run times out.'
+    required: false
+    default: ""
+  cancelRunOnFailure:
+    description: 'Whether to cancel the test run on first failure'
+    required: false
+    default: "false"
+  labUrl:
+    description: 'OpenText Functional Testing Lab Server URL, format: http(s)://{hostname-or-ip}[:{port}]'
+    required: false
+    default: ""
+  labExecToken:
+    description: 'OpenText Functional Testing Lab Exec Token'
+    required: false
+    default: ""
+  githubToken:
+    description: 'GitHub PAT'
+    required: true
+  logLevel:
+    description: 'Sets the log level (1-5): 1-trace, 2-debug, 3-info, 4-warn, 5-error'
+    required: false
+    default: "3"
+runs:
+  using: 'node24'
+  main: 'dist/index.js'
