@@ -32,6 +32,9 @@ import { existsSync, lstatSync } from 'fs';
 import * as path from 'path';
 import { TestType } from '../dto/TestType.js';
 import { Logger } from './logger.js';
+import { exec } from '@actions/exec';
+import * as core from '@actions/core';
+import { config } from '../config/config.js';
 
 const ACTIONS_XML = 'actions.xml';
 const _TSP = '.tsp';
@@ -104,10 +107,9 @@ const getTimestamp = (): string => { // ddMMyyyyHHmmssSSS
   return `${day}${month}${year}${hours}${minutes}${seconds}${milliseconds}`;
 }
 
-const escapePropVal = (val: string): string => {
-  return val.replace(/\\/g, '\\\\')
-    .replace(/:/g, '\\:')
-    .replace(/=/g, '\\=');
+const escapePropVal = (val: string, eq: boolean = false): string => {
+  val = val.replace(/\\/g, '\\\\').replace(/:/g, '\\:');
+  return eq ? val.replace(/=/g, '\\=') : val;
 }
 
 const checkReadWriteAccess = async (dirPath: string): Promise<void> => {
@@ -126,12 +128,12 @@ const checkReadWriteAccess = async (dirPath: string): Promise<void> => {
     throw new Error(err);
   }
 }
-const checkFileExists = async (fullPath: string): Promise <void> => {
+const checkFileExists = async (fullPath: string): Promise<void> => {
   try {
     logger.debug(`ensureFileExists: [${fullPath}] ...`);
     await fs.access(fullPath, fs.constants.F_OK | fs.constants.R_OK);
     logger.debug(`Located [${fullPath}]`);
-  } catch(error: any) {
+  } catch (error: any) {
     const err = `checkFileExists: Failed to locate [${fullPath}]: ${error.message}`;
     logger.error(err);
     throw new Error(err);
@@ -170,4 +172,91 @@ const getLastFolderFromPath = (dirPath: string): string => {
   }
 }
 
-export { isBlank, isTestMainFile, getTestType, getParentFolderFullPath, extractWorkflowFileName, sleep, getFileIfExist, getTimestamp, escapePropVal, checkReadWriteAccess, checkFileExists, escapeXML, parseTimeToFloat, getLastFolderFromPath };
+const checkoutRepo = async (workDir: string): Promise<void> => {
+  logger.info('BEGIN checkoutRepo ...');
+  try {
+    const token = core.getInput('githubToken', { required: true });
+
+    const authRepoUrl = config.repoUrl.replace('https://', `https://x-access-token:${token}@`);
+    logger.debug(`Expected authRepoUrl: ${authRepoUrl}`);
+
+    // Filter process.env to exclude undefined values
+    const filteredEnv: { [key: string]: string } = {};
+    for (const [key, value] of Object.entries(process.env)) {
+      if (value !== undefined) {
+        filteredEnv[key] = value;
+      }
+    }
+
+    // Configure Git options with common properties
+    const gitOptions = {
+      cwd: workDir,     // Common working directory
+      ignoreReturnCode: true, // Ignore non-zero exit codes by default
+      silent: false,          // Keep false for debugging
+      env: filteredEnv,       // Use filtered env with only string values
+      listeners: {            // Common listeners for all Git commands
+        stderr: (data: Buffer) => printWarn(data) // for debug only
+      }
+    };
+
+    function printWarn(data: Buffer) {
+      if (data) {
+        const msg = data.toString().trim();
+        logger.warn(msg);
+      }
+    };
+
+    // Check if _work\ufto-tests is a Git repository
+    const gitDir = path.join(workDir, '.git');
+    if (existsSync(gitDir)) {
+      logger.info('Working directory is a Git repo, checking remote URL...');
+
+      // Get the current remote URL with specific stdout capture
+      let currentRemoteUrl = '';
+      const getUrlOutput: string[] = [];
+      const getUrlExitCode = await exec('git', ['remote', 'get-url', 'origin'], {
+        ...gitOptions,
+        listeners: {
+          ...gitOptions.listeners,
+          stdout: (data: Buffer) => getUrlOutput.push(data.toString().trim())
+        }
+      });
+      if (getUrlExitCode === 0) {
+        currentRemoteUrl = getUrlOutput.join('').trim();
+        logger.debug(`Current remote URL: ${currentRemoteUrl}`);
+      } else {
+        logger.warn('Failed to get current remote URL, proceeding with set-url');
+      }
+
+      // Compare current URL with base repoUrl (ignoring token)
+      if (currentRemoteUrl == authRepoUrl) {
+        logger.info('Remote URL base matches.');
+      } else {
+        logger.info('Remote URL does not match, setting to authenticated URL...');
+        const setUrlExitCode = await exec('git', ['remote', 'set-url', 'origin', authRepoUrl], gitOptions);
+        if (setUrlExitCode !== 0) {
+          throw new Error(`git remote set-url failed with exit code ${setUrlExitCode}`);
+        }
+      }
+
+      // Perform the pull
+      logger.info('Pulling updates...');
+      const pullExitCode = await exec('git', ['pull'], gitOptions);
+      if (pullExitCode !== 0) {
+        throw new Error(`git pull failed with exit code ${pullExitCode}`);
+      }
+    } else {
+      logger.info(`Cloning repository into ${workDir}`);
+      const cloneExitCode = await exec('git', ['clone', authRepoUrl, '.'], gitOptions);
+      if (cloneExitCode !== 0) {
+        throw new Error(`git clone failed with exit code ${cloneExitCode}`);
+      }
+    }
+    logger.info('END checkoutRepo ...');
+  } catch (error: any) {
+    logger.error('Error in checkoutRepo: ' + error?.message);
+    throw error;
+  }
+}
+
+export { isBlank, isTestMainFile, getTestType, getParentFolderFullPath, extractWorkflowFileName, sleep, getFileIfExist, getTimestamp, escapePropVal, checkReadWriteAccess, checkFileExists, escapeXML, parseTimeToFloat, getLastFolderFromPath, checkoutRepo };

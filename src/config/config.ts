@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 Open Text.
+ * Copyright 2026 Open Text.
  *
  * The only warranties for products and services of Open Text and
  * its affiliates and licensors (“Open Text”) are as may be set forth
@@ -29,10 +29,11 @@
 
 import { context } from '@actions/github';
 import { getInput } from '@actions/core';
+import * as path from 'path';
 
 interface Config {
-  runType: string; // filesystem | filesystem-parallel | alm | alm-labmgmt
-  testsPath: string;
+  runType: string; // filesystem | filesystem-parallel | alm | alm-lab
+  testPaths: string;
   timeout: number;
   cancelRunOnFailure: boolean;
   labUrl?: string; // Digital Lab server URL
@@ -41,10 +42,13 @@ interface Config {
   owner: string;
   repo: string;
   repoUrl: string;
+  ftlUrl: string;
   logLevel: number;
   runnerWorkspacePath: string; // Path to the workspace directory process.env.RUNNER_WORKSPACE!
+  tmpDirPath: string;
 }
 
+const _TMP = "___tmp";
 const serverUrl = context.serverUrl;
 const { owner, repo } = context.repo;
 if (!serverUrl || !owner || !repo) {
@@ -54,20 +58,33 @@ if (!serverUrl || !owner || !repo) {
 let _config: Config | undefined;
 let errorLoadingConfig: string;
 
+const getUnquotedInput = (key: string, defaultValue?: string): string => {
+  const value = getInput(key); // trimmed by default
+  if (value) {
+    return value.replace(/^['"]+|['"]+$/g, '').trim();
+  } else if (defaultValue !== undefined) {
+    return defaultValue;
+  } else {
+    return "";
+  }
+}
+
 try {
   _config = {
-    runType: getInput('runType').trim(),
-    testsPath: getInput('testsPath').trim(),
-    timeout: Number.parseInt(getInput('timeout').trim()),
-    cancelRunOnFailure: getInput('cancelRunOnFailure').trim().toLowerCase() === 'true',
-    labUrl: getInput('labUrl').trim(),
-    labExecToken: getInput('labExecToken').trim(),
-    githubToken: getInput('githubToken').trim(),
+    runType: getUnquotedInput('runType', 'filesystem'),
+    testPaths: getUnquotedInput('testPaths'),
+    timeout: Number.parseInt(getInput('timeout')),
+    cancelRunOnFailure: getInput('cancelRunOnFailure').toLowerCase() === 'true',
+    labUrl: getInput('labUrl'),
+    labExecToken: getInput('labExecToken'),
+    githubToken: getInput('githubToken'),
     owner: owner,
     repo: repo,
     repoUrl: `${serverUrl}/${owner}/${repo}.git`,
-    logLevel: Number.parseInt(getInput('logLevel').trim()),
-    runnerWorkspacePath: process.env.RUNNER_WORKSPACE! // e.g., C:\GitHub_runner\_work\ufto-tests\
+    ftlUrl: getInput('ftlUrl'),
+    logLevel: Number.parseInt(getInput('logLevel')),
+    runnerWorkspacePath: process.env.RUNNER_WORKSPACE!, // e.g., C:\GitHub_runner\_work\ufto-tests\
+    tmpDirPath: path.join(process.env.RUNNER_WORKSPACE!, _TMP)
   };
 } catch (error: any) {
   errorLoadingConfig = error.message;

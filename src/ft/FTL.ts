@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 Open Text.
+ * Copyright 2026 Open Text.
  *
  * The only warranties for products and services of Open Text and
  * its affiliates and licensors (“Open Text”) are as may be set forth
@@ -38,54 +38,63 @@ const logger = new Logger("FTL");
 
 export default class FTL {
   public static readonly FileSystem = "FileSystem";
+  public static readonly Alm = "Alm";
   public static readonly MBT = "MBT";
-  public static readonly _TMP = "___tmp";
-  public static async ensureToolExists(): Promise<string> {
+  public static async ensureToolExists(): Promise<void> {
     logger.debug(`ensureToolExists: Checking for ${FTL_EXE} ...`);
     const runnerWorkspace = config.runnerWorkspacePath;
-    const actionRepo = process.env.GITHUB_ACTION_REPOSITORY;
-    const actionRef = process.env.GITHUB_ACTION_REF;
 
-    let missing = "";
     if (!runnerWorkspace) {
-      missing = `RUNNER_WORKSPACE`;
-    } else if (!actionRepo) {
-      missing = `GITHUB_ACTION_REPOSITORY`;
-    } else if (!actionRef) {
-      missing = `GITHUB_ACTION_REF`;
-    }
-    if (missing) {
-      const err = `Missing required environment variable: ${missing}`;
+      const err = `Missing required environment variable: RUNNER_WORKSPACE`;
       logger.error(`ensureToolExists: ${err}`);
       throw new Error(err);
     }
 
-    // Extract base runner path (remove the repo name from the end)
-    const runnerRoot = path.resolve(runnerWorkspace, '..'); // Go up one level
-    const [owner, repo] = actionRepo!.split('/');
-    const actionBinPath = path.join(runnerRoot, '_actions', owner, repo, actionRef!, 'bin');
-    const exeFullPath = path.join(actionBinPath, FTL_EXE);
+    const exeFullPath = path.join(runnerWorkspace, FTL_EXE);
+
     try {
-      await fsp.access(exeFullPath, fsp.constants.F_OK);
-      logger.debug(`Located [${exeFullPath}]`);
-      return actionBinPath; // Return the bin path where FTTollsLauncher.exe is located
-    } catch (error: any) {
-      const err = `Failed to locate [${exeFullPath}]: ${error.message}`;
-      logger.error(err);
+      await fsp.access(exeFullPath, fsp.constants.F_OK | fsp.constants.X_OK);
+      logger.debug(`ensureToolExists: Located [${exeFullPath}]`);
+      return;
+    } catch {
+      logger.debug(`ensureToolExists: [${exeFullPath}] not found, downloading from ${config.ftlUrl} ...`);
+    }
+
+    if (!config.ftlUrl) {
+      const err = `${FTL_EXE} not found and ftlUrl is not configured`;
+      logger.error(`ensureToolExists: ${err}`);
+      throw new Error(err);
+    }
+
+    try {
+      const response = await fetch(config.ftlUrl);
+      if (!response.ok || !response.body) {
+        throw new Error(`HTTP ${response.status} ${response.statusText}`);
+      }
+
+      const buffer = await response.arrayBuffer();
+      await fsp.writeFile(exeFullPath, Buffer.from(buffer));
+      await fsp.access(exeFullPath, fsp.constants.F_OK | fsp.constants.X_OK);
+
+      logger.info(`ensureToolExists: Downloaded [${exeFullPath}]`);
+      return;
+    } catch (error) {
+      const err = `Failed to download ${FTL_EXE} from '${config.ftlUrl}': ${error}`;
+      logger.error(`ensureToolExists: ${err}`);
       throw new Error(err);
     }
   }
-  public static async runTool(binPath: string, propsFullPath: string): Promise<ExitCode> {
-    logger.debug(`runTool: binPath=[${binPath}], propsFullPath=[${propsFullPath}] ...`);
+  public static async runTool(propsFullPath: string): Promise<ExitCode> {
+    logger.debug(`runTool: propsFullPath=[${propsFullPath}] ...`);
+
     const args = ['-paramfile', propsFullPath];
     try {
-      await fsp.access(path.join(binPath, FTL_EXE), fsp.constants.F_OK | fsp.constants.X_OK);
       logger.info(`${FTL_EXE} ${args.join(' ')}`);
 
       return await new Promise<ExitCode>((resolve, reject) => {
         const launcher = spawn(FTL_EXE, args, {
           stdio: ['ignore', 'pipe', 'pipe'],
-          cwd: binPath, // Set working directory to action's bin folder
+          cwd: config.runnerWorkspacePath, // Set working directory to temp folder
         });
         launcher.stdout.on('data', (data) => {
           const msg = data?.toString().trim();
@@ -116,7 +125,7 @@ export default class FTL {
           logger.debug(`runTool: ExitCode=${normalizedCode}`);
           const exitCode = Object.values(ExitCode).includes(normalizedCode)
             ? (normalizedCode as ExitCode)
-            : ExitCode.Unkonwn;
+            : ExitCode.Unknown;
           resolve(exitCode);
         });
       });

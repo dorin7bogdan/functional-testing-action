@@ -5,10 +5,16 @@
   "type": "module",
   "main": "src/main.ts",
   "scripts": {
-    "test": "ts-node --esm src/main.ts",
+    "test": "tsx src/main.ts",
     "build": "ncc build --license licenses.txt"
   },
-  "keywords": [ "GitHub", "actions", "CI", "Functional Testing", "UFT" ],
+  "keywords": [
+    "GitHub",
+    "actions",
+    "CI",
+    "Functional Testing",
+    "UFT"
+  ],
   "contributors": [
     {
       "name": "Dorin Bogdan",
@@ -24,6 +30,7 @@
     "@xmldom/xmldom": "^0.9.8",
     "fs-extra": "^11.3.3",
     "sax": "^1.4.4",
+    "tsx": "^4.21.0",
     "xml2js": "^0.6.2",
     "xmlbuilder": "^15.1.1",
     "yaml": "^3.0.0-0"
@@ -53,7 +60,9 @@
     "url": "git+https://github.com/opentext/functional-testing.git"
   },
   "author": "Open Text",
-  "engines": { "node": ">=24" },
+  "engines": {
+    "node": ">=24"
+  },
   "bugs": {
     "url": "https://github.com/opentext/functional-testing/issues"
   },

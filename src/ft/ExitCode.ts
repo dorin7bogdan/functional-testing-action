@@ -31,5 +31,5 @@ export enum ExitCode {
   Failed = -1,
   Unstable = -2,
   Aborted = -3,
-  Unkonwn = -99
+  Unknown = -99
 }

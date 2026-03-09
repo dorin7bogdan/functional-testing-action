@@ -33,40 +33,50 @@ import { ExitCode } from './ExitCode.js';
 import FTL from './FTL.js';
 import { checkFileExists, checkReadWriteAccess, escapePropVal, getTimestamp } from '../utils/utils.js';
 import { config } from '../config/config.js';
+import { RunType } from '../dto/RunType.js';
 
 const logger = new Logger('FtTestExecuter');
 
 export default class FtTestExecuter {
-  public static async process(testPaths: string[]): Promise<{ exitCode: ExitCode, resFullPath: string, propsFullPath: string, mtbxFullPath: string }> {
-    logger.debug(`process: testPaths.length=${testPaths.length} ...`);
+  public static async preProcess(runType: RunType, testPaths: string[]): Promise<{ propsFullPath: string, resFullPath: string }> {
+    logger.debug(`preProcess ...`);
     await checkReadWriteAccess(config.runnerWorkspacePath);
     const suffix = getTimestamp();
-    const { propsFullPath, resFullPath, mtbxFullPath } = await this.createPropsFile(suffix, testPaths);
+    const isParallel = runType === RunType.FSParallel;
+    const runtype = runType === RunType.ALM ? FTL.Alm : FTL.FileSystem;
+    const { propsFullPath, resFullPath } = await this.createPropsFile(runtype, suffix, testPaths, isParallel);
     await checkFileExists(propsFullPath);
-    const actionBinPath = await FTL.ensureToolExists();
-    const exitCode = await FTL.runTool(actionBinPath, propsFullPath);
-    logger.debug(`process: exitCode=${exitCode}`);
-    return { exitCode, resFullPath, propsFullPath, mtbxFullPath };
+    return { propsFullPath, resFullPath };
   }
 
-  private static async createPropsFile(suffix: string, testPaths: string[]): Promise<{ propsFullPath: string, resFullPath: string, mtbxFullPath: string }> {
-    const propsFullPath = path.join(config.runnerWorkspacePath, FTL._TMP, `props_${suffix}.txt`);
-    const resFullPath = path.join(config.runnerWorkspacePath, FTL._TMP, `results_${suffix}.xml`);
-    const mtbxFullPath = path.join(config.runnerWorkspacePath, FTL._TMP, `testsuite_${suffix}.mtbx`);
+  public static async process(propsFullPath: string): Promise<ExitCode> {
+    logger.debug(`process: propsFullPath=${propsFullPath} ...`);
+    await checkFileExists(propsFullPath);
+    await checkReadWriteAccess(config.runnerWorkspacePath);
+    await FTL.ensureToolExists();
+    const exitCode = await FTL.runTool(propsFullPath);
+    logger.debug(`process: exitCode=${exitCode}`);
+    return exitCode;
+  }
+
+  private static async createPropsFile(runtype: string, suffix: string, testPaths: string[], isParallel: boolean = false): Promise<{ propsFullPath: string, resFullPath: string }> {
+    const propsFullPath = path.join(config.runnerWorkspacePath, `props_${suffix}.txt`);
+    const resFullPath = path.join(config.runnerWorkspacePath, `results_${suffix}.xml`);
 
     logger.debug(`createPropsFile: [${propsFullPath}] ...`);
-    await this.createMtbxFile(mtbxFullPath, testPaths);
-    await checkFileExists(mtbxFullPath);
+
     const props: { [key: string]: string } = {
-      runType: FTL.FileSystem,
-      Test1: escapePropVal(mtbxFullPath),
+      runType: runtype,
       resultsFilename: escapePropVal(resFullPath)
     };
+    for (let i = 0; i < testPaths.length; i++) {
+      const key = `Test${i + 1}`;
+      props[key] = escapePropVal(testPaths[i]);
+    }
 
     if (config.labUrl && config.labExecToken) {
       props["MobileHostAddress"] = config.labUrl;
       props["MobileExecToken"] = config.labExecToken;
-      // TODO props["MobileExecDescription"] = `${config.mobileExecDescription} Test: ${testName}`;
     }
     try {
       await fs.writeFile(propsFullPath, Object.entries(props).map(([k, v]) => `${k}=${v}`).join('\n'));
@@ -75,21 +85,7 @@ export default class FtTestExecuter {
       throw new Error('Failed when creating properties file');
     }
 
-    return { propsFullPath, resFullPath, mtbxFullPath };
-  }
-
-  private static async createMtbxFile(mtbxFullPath: string, testPaths: string[]): Promise<string> {
-    logger.debug(`createMtbxFile: [${mtbxFullPath}]`);
-    let xml = "<Mtbx>\n";
-    testPaths.map(async (testPath, i) => {
-      const name = path.basename(testPath);
-      //const fullPath = path.join(config.runnerWorkspacePath, name);
-      xml += `\t<Test name="${name}" path="${testPath}" />\n`;
-    });
-    xml += `</Mtbx>`;
-
-    await fs.writeFile(mtbxFullPath, xml, 'utf8');
-    return mtbxFullPath;
+    return { propsFullPath, resFullPath };
   }
 
 }
