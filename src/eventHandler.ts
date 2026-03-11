@@ -149,7 +149,7 @@ const validateAndGetTestPaths = async (): Promise<string[]> => {
     throw new Error(`Missing testPaths value`);
   }
 
-  const rawPaths: string[] = config.testPaths.split('\n').filter(p => p.length > 0);
+  const rawPaths: string[] = config.testPaths;
 
   if (rawPaths.length === 0) {
     throw new Error(`Invalid testPaths value '${config.testPaths}'`);

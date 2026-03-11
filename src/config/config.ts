@@ -33,7 +33,7 @@ import * as path from 'path';
 
 interface Config {
   runType: string; // filesystem | filesystem-parallel | alm | alm-lab
-  testPaths: string;
+  testPaths: string[];
   timeout: number;
   cancelRunOnFailure: boolean;
   labUrl?: string; // Digital Lab server URL
@@ -51,6 +51,7 @@ interface Config {
 const _TMP = "___tmp";
 const serverUrl = context.serverUrl;
 const { owner, repo } = context.repo;
+const quotesRegex = /^['"]+|['"]+$/g;
 if (!serverUrl || !owner || !repo) {
   throw new Error('Event should contain repository details!');
 }
@@ -61,7 +62,7 @@ let errorLoadingConfig: string;
 const getUnquotedInput = (key: string, defaultValue?: string): string => {
   const value = getInput(key); // trimmed by default
   if (value) {
-    return value.replace(/^['"]+|['"]+$/g, '').trim();
+    return value.replace(quotesRegex, '').trim();
   } else if (defaultValue !== undefined) {
     return defaultValue;
   } else {
@@ -69,10 +70,27 @@ const getUnquotedInput = (key: string, defaultValue?: string): string => {
   }
 }
 
+const getUnquotedInputEx = (key: string): string[] => {
+  const value = getInput(key); // trimmed by default
+  if (value) {
+    if (value.startsWith('[') && value.endsWith(']')) {
+      try {
+        return JSON.parse(value);
+      } catch (error) {
+        throw new Error(`Invalid JSON format for input '${key}': ${error}`);
+      }
+    } else {
+      return value.replace(quotesRegex, '').trim().split('\n').filter(p => p.length > 0);
+    }
+  } else {
+    return [];
+  }
+}
+
 try {
   _config = {
     runType: getUnquotedInput('runType', 'filesystem'),
-    testPaths: getUnquotedInput('testPaths'),
+    testPaths: getUnquotedInputEx('testPaths'),
     timeout: Number.parseInt(getInput('timeout')),
     cancelRunOnFailure: getInput('cancelRunOnFailure').toLowerCase() === 'true',
     labUrl: getInput('labUrl'),
