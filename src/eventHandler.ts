@@ -75,9 +75,7 @@ export const handleCurrentEvent = async (): Promise<void> => {
 
   const workDir = process.cwd(); //.env.GITHUB_WORKSPACE || '.';
   logger.info(`Working directory: ${workDir}`);
-  await cleanupWSFolder();
 
-  //await checkoutRepoAndCreateSymLink(workDir, branch);
   await checkoutRepo(workDir);
 
   const runType = validateAndGetRunType();
@@ -90,10 +88,12 @@ export const handleCurrentEvent = async (): Promise<void> => {
 
   async function run(): Promise<ExitCode> {
     logger.debug(`BEGIN run: ...`);
+    let propsFullPath: string | undefined;
+    let resFullPath: string | undefined;
     try {
       const repoFolderPath = workDir;
 
-      const { propsFullPath, resFullPath } = await FtTestExecuter.preProcess(runType, testPaths);
+      ({ propsFullPath, resFullPath } = await FtTestExecuter.preProcess(runType, testPaths));
       const exitCode = await FtTestExecuter.process(propsFullPath);
       await GitHubClient.uploadArtifact(config.runnerWorkspacePath, [propsFullPath, resFullPath], `temp_files`);
       logger.info(`END run: ExitCode=${exitCode}.`);
@@ -102,40 +102,21 @@ export const handleCurrentEvent = async (): Promise<void> => {
       logger.error(`run: ${error}`);
       return ExitCode.Aborted;
     } finally {
+      await cleanupTempFiles([propsFullPath, resFullPath].filter((f): f is string => f !== undefined));
       logger.error(`END run.`);
     }
   }
 };
-
-const cleanupWSFolder = async () => {
-  logger.debug(`cleanupWSFolder: ${config.runnerWorkspacePath}`);
-
-  try {
-    // Check if the path exists and is a directory
-    const stats = await fs.promises.stat(config.runnerWorkspacePath);
-    if (!stats.isDirectory()) {
-      logger.warn(`cleanupWSFolder: ${config.runnerWorkspacePath} is not a directory`);
-      return;
+const cleanupTempFiles = async (fullPathFiles: string[]) => {
+  logger.debug(`removeFiles: ${fullPathFiles.join(', ')} ...`);
+  await Promise.all(fullPathFiles.map(async (fullPathFile) => {
+    try {
+      await fs.promises.rm(fullPathFile, { force: true });
+    } catch (error) {
+      logger.warn(`removeFiles: Failed to delete ${fullPathFile}: ${error}`);
     }
-
-    const items = await fs.promises.readdir(config.runnerWorkspacePath, { withFileTypes: true });
-    // Delete eligible items in parallel
-    await Promise.all(
-      items
-        .filter(item => item.isFile() && /\.(txt|xml|zip)$/i.test(item.name))
-        .map(async (item) => {
-          const fullPath = path.join(config.runnerWorkspacePath, item.name);
-          try {
-            await fs.promises.rm(fullPath, { recursive: true, force: true });
-          } catch (error) {
-            logger.warn(`cleanupWSFolder: Failed to delete ${fullPath}: ${error}`);
-          }
-        })
-    );
-  } catch (error) {
-    logger.warn(`cleanupWSFolder: ${error}`);
-  }
-};
+  }));
+}
 
 const RUN_TYPE_MAP: Record<string, RunType> = {
   'filesystem': RunType.FS,
@@ -171,11 +152,11 @@ const validateAndGetTestPaths = async (): Promise<string[]> => {
     if (path.isAbsolute(p)) {
       return p;
     }
-    // Relative path: resolve via repository root
+    // Relative path: just append the repo name as prefix (e.g., "quicks/test1" => "ufto-tests/quicks/test1")
     return path.join(config.repo, p);
   });
 
-  const missing: string[] = testPaths.filter(p => !fs.existsSync(p));
+  const missing: string[] = testPaths.filter(p => !fs.existsSync(path.resolve(config.runnerWorkspacePath, p)));
   if (missing.length > 0) {
     throw new Error(`The following test paths do not exist:\n${missing.join('\n')}`);
   }
@@ -184,31 +165,3 @@ const validateAndGetTestPaths = async (): Promise<string[]> => {
   testPaths.forEach(p => logger.debug(`[${p}]`));
   return testPaths;
 }
-
-/*const createSymLink = async (target: string, branch: string): Promise<void> => {
-  logger.debug(`createSymLink: target = [${target}], branch = [${branch}]`);
-  const linkDir = `${config.repo}-${branch.replace(/[\\/:*?"<>|]/g, '_')}`;
-  const linkPath = path.join(config.tmpDirPath, linkDir);
-  try {
-    await fs.promises.lstat(linkPath);
-    // Link exists — check if the target it points to is still valid
-    try {
-      await fs.promises.stat(linkPath); // follows the symlink
-      logger.debug(`createSymLink: link already exists: [${linkPath}]`);
-    } catch { // Dangling symlink — target is gone, recreate it
-      logger.warn(`createSymLink: dangling link detected [${linkPath}], recreating ...`);
-      await fs.promises.unlink(linkPath);
-      await fs.promises.symlink(target, linkPath, 'junction');
-      logger.info(`createSymLink: link recreated: [${linkPath}]`);
-    }
-  } catch {
-    logger.debug(`createSymLink: creating link [${linkPath}] -> [${target}] ...`);
-    await fs.promises.symlink(target, linkPath, 'junction');
-    logger.info(`createSymLink: link created: [${linkPath}]`);
-  }
-}
-
-const checkoutRepoAndCreateSymLink = async (workDir: string, branch: string): Promise<void> => {
-  await checkoutRepo(workDir);
-  await createSymLink(workDir, branch);
-}*/
