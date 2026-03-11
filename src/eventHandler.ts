@@ -95,7 +95,7 @@ export const handleCurrentEvent = async (): Promise<void> => {
 
       ({ propsFullPath, resFullPath } = await FtTestExecuter.preProcess(runType, testPaths));
       const exitCode = await FtTestExecuter.process(propsFullPath);
-      await GitHubClient.uploadArtifact(config.runnerWorkspacePath, [propsFullPath, resFullPath], `temp_files`);
+      await uploadArtifacts(propsFullPath, resFullPath);
       logger.info(`END run: ExitCode=${exitCode}.`);
       return exitCode;
     } catch (error) {
@@ -107,13 +107,20 @@ export const handleCurrentEvent = async (): Promise<void> => {
     }
   }
 };
+
+const uploadArtifacts = async (propsFullPath: string, resFullPath: string) => {
+  logger.debug(`uploadArtifacts: propsFullPath=[${propsFullPath}], resFullPath=[${resFullPath}] ...`);
+  await GitHubClient.uploadArtifact(config.runnerWorkspacePath, [propsFullPath], `props_file`);
+  await GitHubClient.uploadArtifact(config.runnerWorkspacePath, [resFullPath], `results_file`);
+}
+
 const cleanupTempFiles = async (fullPathFiles: string[]) => {
-  logger.debug(`removeFiles: ${fullPathFiles.join(', ')} ...`);
+  logger.debug(`cleanupTempFiles: ${fullPathFiles.join(', ')} ...`);
   await Promise.all(fullPathFiles.map(async (fullPathFile) => {
     try {
       await fs.promises.rm(fullPathFile, { force: true });
     } catch (error) {
-      logger.warn(`removeFiles: Failed to delete ${fullPathFile}: ${error}`);
+      logger.warn(`cleanupTempFiles: Failed to delete ${fullPathFile}: ${error}`);
     }
   }));
 }
