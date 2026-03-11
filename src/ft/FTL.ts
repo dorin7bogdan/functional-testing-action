@@ -30,7 +30,7 @@ import { spawn } from 'child_process';
 import { ExitCode } from '../ft/ExitCode.js';
 import * as fsp from 'fs/promises';
 import path from "path";
-import { Logger } from "../utils/logger.js";
+import Logger from "../utils/logger.js";
 import { config } from '../config/config.js';
 
 const FTL_EXE = 'FTToolsLauncher.exe';
@@ -54,7 +54,7 @@ export default class FTL {
 
     try {
       await fsp.access(exeFullPath, fsp.constants.F_OK | fsp.constants.X_OK);
-      logger.debug(`ensureToolExists: Located [${exeFullPath}]`);
+      logger.debug(`ensureToolExists: Located "${exeFullPath}"`);
       return;
     } catch {
       logger.debug(`ensureToolExists: "${exeFullPath}" not found, downloading from "${config.ftlUrl}" ...`);

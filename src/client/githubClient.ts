@@ -30,7 +30,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { DefaultArtifactClient } from '@actions/artifact';
 import { getOctokit, context } from '@actions/github';
-import { Logger } from '../utils/logger.js';
+import Logger from '../utils/logger.js';
 import { config } from '../config/config.js';
 
 const _owner_repo = { owner: config.owner, repo: config.repo };

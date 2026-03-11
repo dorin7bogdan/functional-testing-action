@@ -28,7 +28,7 @@
  */
 import * as path from 'path';
 import { promises as fs } from 'fs';
-import { Logger } from '../utils/logger.js';
+import Logger from '../utils/logger.js';
 import { ExitCode } from './ExitCode.js';
 import FTL from './FTL.js';
 import { checkFileExists, checkReadWriteAccess, escapePropVal, getTimestamp } from '../utils/utils.js';

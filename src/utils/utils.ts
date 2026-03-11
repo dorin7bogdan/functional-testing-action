@@ -28,10 +28,10 @@
  */
 
 import * as fs from 'fs/promises';
-import { existsSync, lstatSync } from 'fs';
+import { existsSync } from 'fs';
 import * as path from 'path';
-import { TestType } from '../dto/TestType.js';
-import { Logger } from './logger.js';
+import TestType from '../dto/TestType.js';
+import Logger from './logger.js';
 import { exec } from '@actions/exec';
 import * as core from '@actions/core';
 import { config } from '../config/config.js';
@@ -161,17 +161,6 @@ const parseTimeToFloat = (time: string): number => {
   return NaN;
 }
 
-const getLastFolderFromPath = (dirPath: string): string => {
-  if (!dirPath) return "";
-  // Remove trailing slashes and normalize path
-  const cleanPath = path.normalize(dirPath.replace(/[\\/]+$/, ''));
-  if (existsSync(cleanPath) && lstatSync(cleanPath).isDirectory()) {
-    return path.basename(cleanPath);
-  } else {
-    return cleanPath;
-  }
-}
-
 const checkoutRepo = async (workDir: string): Promise<void> => {
   logger.info('BEGIN checkoutRepo ...');
   try {
@@ -259,4 +248,4 @@ const checkoutRepo = async (workDir: string): Promise<void> => {
   }
 }
 
-export { isBlank, isTestMainFile, getTestType, getParentFolderFullPath, extractWorkflowFileName, sleep, getFileIfExist, getTimestamp, escapePropVal, checkReadWriteAccess, checkFileExists, escapeXML, parseTimeToFloat, getLastFolderFromPath, checkoutRepo };
+export { isBlank, isTestMainFile, getTestType, getParentFolderFullPath, extractWorkflowFileName, sleep, getFileIfExist, getTimestamp, escapePropVal, checkReadWriteAccess, checkFileExists, escapeXML, parseTimeToFloat, checkoutRepo };

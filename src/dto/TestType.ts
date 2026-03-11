@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 Open Text.
+ * Copyright 2026 Open Text.
  *
  * The only warranties for products and services of Open Text and
  * its affiliates and licensors (“Open Text”) are as may be set forth
@@ -26,7 +26,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-export class TestType {
+export default class TestType {
   private constructor(public readonly testType: string) { }
 
   public static readonly GUI = new TestType("gui");
@@ -51,5 +51,3 @@ export class TestType {
     return this.testType.toUpperCase();
   }
 }
-
-export type TestTypeWrapper = typeof TestType.GUI | typeof TestType.API | typeof TestType.None;

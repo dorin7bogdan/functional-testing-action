@@ -37,7 +37,7 @@ enum LogLevel {
   ERROR = 5
 }
 
-export class Logger {
+export default class Logger {
   isDebugEnabled() {
     return LogLevel.DEBUG >= this.minLevel;
   }

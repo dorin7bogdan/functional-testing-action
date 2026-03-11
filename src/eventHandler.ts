@@ -30,13 +30,13 @@
 import { notice } from '@actions/core';
 import { context } from '@actions/github';
 import { config } from './config/config.js';
-import { Logger } from './utils/logger.js';
+import Logger from './utils/logger.js';
 import * as path from 'path';
 import GitHubClient from './client/githubClient.js';
 import { ExitCode } from './ft/ExitCode.js';
 import FtTestExecuter from './ft/FtTestExecuter.js';
-import * as fs from 'fs';
-import FTL from './ft/FTL.js';
+import * as fs from 'fs-extra';
+import JUnitParser from './reporting/JUnitParser.js';
 import { RunType } from './dto/RunType.js';
 import { checkoutRepo } from './utils/utils.js';
 
@@ -90,12 +90,14 @@ export const handleCurrentEvent = async (): Promise<void> => {
     logger.debug(`BEGIN run: ...`);
     let propsFullPath: string | undefined;
     let resFullPath: string | undefined;
+    let junitFullPath: string | undefined;
     try {
       const repoFolderPath = workDir;
 
       ({ propsFullPath, resFullPath } = await FtTestExecuter.preProcess(runType, testPaths));
       const exitCode = await FtTestExecuter.process(propsFullPath);
-      await uploadArtifacts(propsFullPath, resFullPath);
+      junitFullPath = await buildJUnitReport(resFullPath);
+      await uploadArtifacts(propsFullPath, resFullPath, junitFullPath);
       logger.info(`END run: ExitCode=${exitCode}.`);
       return exitCode;
     } catch (error) {
@@ -108,10 +110,11 @@ export const handleCurrentEvent = async (): Promise<void> => {
   }
 };
 
-const uploadArtifacts = async (propsFullPath: string, resFullPath: string) => {
-  logger.debug(`uploadArtifacts: propsFullPath=[${propsFullPath}], resFullPath=[${resFullPath}] ...`);
-  await GitHubClient.uploadArtifact(config.runnerWorkspacePath, [propsFullPath], `props_file`);
-  await GitHubClient.uploadArtifact(config.runnerWorkspacePath, [resFullPath], `results_file`);
+const uploadArtifacts = async (propsFullPath: string, resFullPath: string, junitFullPath: string) => {
+  logger.debug(`uploadArtifacts: propsFullPath=[${propsFullPath}], resFullPath=[${resFullPath}], junitFullPath=[${junitFullPath}] ...`);
+  await GitHubClient.uploadArtifact(config.runnerWorkspacePath, [propsFullPath], `props-txt`);
+  await GitHubClient.uploadArtifact(config.runnerWorkspacePath, [resFullPath], `results-xml`);
+  await GitHubClient.uploadArtifact(config.runnerWorkspacePath, [junitFullPath], `junit-xml`);
 }
 
 const cleanupTempFiles = async (fullPathFiles: string[]) => {
@@ -171,4 +174,13 @@ const validateAndGetTestPaths = async (): Promise<string[]> => {
   logger.debug(`validateAndGetTestPaths: resolved test paths:`);
   testPaths.forEach(p => logger.debug(`"${p}"`));
   return testPaths;
+}
+
+const buildJUnitReport = async (resFullPath: string): Promise<string> => {
+  logger.info(`sendTestResults: "${resFullPath}" ...`);
+  const parser = new JUnitParser(resFullPath);
+  const junitRes = await parser.parseResult();
+  const junitFullPath = path.join(config.runnerWorkspacePath, 'junit-results.xml');
+  await fs.writeFile(junitFullPath, junitRes.toXML());
+  return junitFullPath;
 }

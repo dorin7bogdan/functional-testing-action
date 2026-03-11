@@ -29,7 +29,7 @@
 
 import { setFailed } from '@actions/core';
 import { handleCurrentEvent } from './eventHandler.js';
-import { Logger } from './utils/logger.js';
+import Logger from './utils/logger.js';
 const logger: Logger = new Logger('Main');
 
 async function run () {

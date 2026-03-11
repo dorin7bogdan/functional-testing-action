@@ -28,7 +28,7 @@ inputs:
     description: 'GitHub PAT'
     required: true
   ftlUrl:
-    description: 'OpenText FTToolsLauncher.exe URL'
+    description: 'The URL of OpenText FTToolsLauncher.exe'
     required: false
     default: "https://github.com/MicroFocus/ADM-FT-ToolsLauncher/releases/download/v25.2.0/FTToolsLauncher_net48.exe"
   logLevel:
