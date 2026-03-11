@@ -50,7 +50,7 @@ export default class FtTestExecuter {
   }
 
   public static async process(propsFullPath: string): Promise<ExitCode> {
-    logger.debug(`process: propsFullPath=${propsFullPath} ...`);
+    logger.debug(`process: propsFullPath="${propsFullPath}" ...`);
     await checkFileExists(propsFullPath);
     await checkReadWriteAccess(config.runnerWorkspacePath);
     await FTL.ensureToolExists();
@@ -63,7 +63,7 @@ export default class FtTestExecuter {
     const propsFullPath = path.join(config.runnerWorkspacePath, `props_${suffix}.txt`);
     const resFullPath = path.join(config.runnerWorkspacePath, `results_${suffix}.xml`);
 
-    logger.debug(`createPropsFile: [${propsFullPath}] ...`);
+    logger.debug(`createPropsFile: "${propsFullPath}" ...`);
 
     const props: { [key: string]: string } = {
       runType: runtype,

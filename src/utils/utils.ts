@@ -119,22 +119,22 @@ const checkReadWriteAccess = async (dirPath: string): Promise<void> => {
     throw new Error(err);
   }
   // Check read/write access to RUNNER_WORKSPACE
-  logger.debug(`checkReadWriteAccess: [${dirPath}]`);
+  logger.debug(`checkReadWriteAccess: "${dirPath}"`);
   try {
     await fs.access(dirPath, fs.constants.R_OK | fs.constants.W_OK);
   } catch (error: any) {
-    const err = `checkReadWriteAccess: [${dirPath}] => ${error.message}`;
+    const err = `checkReadWriteAccess: "${dirPath}" => ${error.message}`;
     logger.error(err);
     throw new Error(err);
   }
 }
 const checkFileExists = async (fullPath: string): Promise<void> => {
   try {
-    logger.debug(`ensureFileExists: [${fullPath}] ...`);
+    logger.debug(`ensureFileExists: "${fullPath}" ...`);
     await fs.access(fullPath, fs.constants.F_OK | fs.constants.R_OK);
-    logger.debug(`Located [${fullPath}]`);
+    logger.debug(`Located "${fullPath}"`);
   } catch (error: any) {
-    const err = `checkFileExists: Failed to locate [${fullPath}]: ${error.message}`;
+    const err = `checkFileExists: Failed to locate "${fullPath}": ${error.message}`;
     logger.error(err);
     throw new Error(err);
   }

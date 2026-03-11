@@ -169,6 +169,6 @@ const validateAndGetTestPaths = async (): Promise<string[]> => {
   }
 
   logger.debug(`validateAndGetTestPaths: resolved test paths:`);
-  testPaths.forEach(p => logger.debug(`[${p}]`));
+  testPaths.forEach(p => logger.debug(`"${p}"`));
   return testPaths;
 }

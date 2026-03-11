@@ -57,7 +57,7 @@ export default class FTL {
       logger.debug(`ensureToolExists: Located [${exeFullPath}]`);
       return;
     } catch {
-      logger.debug(`ensureToolExists: [${exeFullPath}] not found, downloading from ${config.ftlUrl} ...`);
+      logger.debug(`ensureToolExists: "${exeFullPath}" not found, downloading from "${config.ftlUrl}" ...`);
     }
 
     if (!config.ftlUrl) {
@@ -76,16 +76,16 @@ export default class FTL {
       await fsp.writeFile(exeFullPath, Buffer.from(buffer));
       await fsp.access(exeFullPath, fsp.constants.F_OK | fsp.constants.X_OK);
 
-      logger.info(`ensureToolExists: Downloaded [${exeFullPath}]`);
+      logger.info(`ensureToolExists: Downloaded "${exeFullPath}"`);
       return;
     } catch (error) {
-      const err = `Failed to download ${FTL_EXE} from '${config.ftlUrl}': ${error}`;
+      const err = `Failed to download "${FTL_EXE}" from "${config.ftlUrl}": ${error}`;
       logger.error(`ensureToolExists: ${err}`);
       throw new Error(err);
     }
   }
   public static async runTool(propsFullPath: string): Promise<ExitCode> {
-    logger.debug(`runTool: propsFullPath=[${propsFullPath}] ...`);
+    logger.debug(`runTool: propsFullPath="${propsFullPath}" ...`);
 
     const args = ['-paramfile', propsFullPath];
     try {
