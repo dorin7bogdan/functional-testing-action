@@ -45,7 +45,6 @@ export class TestResult {
   public async parsePossiblyEmpty(xmlResFilePath: string): Promise<void> {
     if (fs.statSync(xmlResFilePath).size === 0) {
       const sr = new SuiteResult(xmlResFilePath);
-      //sr.addCase(new CaseResult(sr, "[empty]", "Test report file " + xmlResFilePath + " was length 0"));
       this.add(sr);
     } else {
       await this.parse(xmlResFilePath);

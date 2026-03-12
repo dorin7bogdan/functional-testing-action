@@ -41,7 +41,7 @@ export default class JUnitParser {
   }
 
   public async parseResult(): Promise<TestResult> {
-    logger.info(`parseResult: [${this.xmlResFilePath}] ...`);
+    logger.info(`parseResult: "${this.xmlResFilePath}" ...`);
 
     if (!this.xmlResFilePath) {
       return new TestResult();

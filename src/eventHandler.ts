@@ -106,7 +106,7 @@ export const handleCurrentEvent = async (): Promise<void> => {
       return ExitCode.Aborted;
     } finally {
       await cleanupTempFiles([propsFileName, xmlResFileName, junitFileName].filter((f): f is string => f !== undefined));
-      logger.error(`END run.`);
+      logger.debug(`END run.`);
     }
   }
 };
@@ -181,9 +181,9 @@ const validateAndGetTestPaths = async (): Promise<string[]> => {
   return testPaths;
 }
 
-const buildJUnitReport = async (resFullPath: string): Promise<string> => {
-  logger.info(`sendTestResults: "${resFullPath}" ...`);
-  const parser = new JUnitParser(resFullPath);
+const buildJUnitReport = async (xmlResFileName: string): Promise<string> => {
+  logger.info(`buildJUnitReport: from "${xmlResFileName}" ...`);
+  const parser = new JUnitParser(path.join(config.runnerWorkspacePath, xmlResFileName));
   const junitRes = await parser.parseResult();
   const junitFullPath = path.join(config.runnerWorkspacePath, 'junit-results.xml');
   await fs.writeFile(junitFullPath, junitRes.toXML());
