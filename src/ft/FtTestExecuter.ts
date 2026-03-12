@@ -38,19 +38,18 @@ import { RunType } from '../dto/RunType.js';
 const logger = new Logger('FtTestExecuter');
 
 export default class FtTestExecuter {
-  public static async preProcess(runType: RunType, testPaths: string[]): Promise<{ propsFullPath: string, resFullPath: string }> {
+  public static async preProcess(runType: RunType, testPaths: string[]): Promise<{ propsFileName: string, xmlResFileName: string }> {
     logger.debug(`preProcess ...`);
     await checkReadWriteAccess(config.runnerWorkspacePath);
     const suffix = getTimestamp();
     const isParallel = runType === RunType.FSParallel;
     const runtype = runType === RunType.ALM ? FTL.Alm : FTL.FileSystem;
-    const { propsFullPath, resFullPath } = await this.createPropsFile(runtype, suffix, testPaths, isParallel);
-    await checkFileExists(propsFullPath);
-    return { propsFullPath, resFullPath };
+    return await this.createPropsFile(runtype, suffix, testPaths, isParallel);
   }
 
-  public static async process(propsFullPath: string): Promise<ExitCode> {
-    logger.debug(`process: propsFullPath="${propsFullPath}" ...`);
+  public static async process(propsFileName: string): Promise<ExitCode> {
+    logger.debug(`process: propsFileName = "${propsFileName}" ...`);
+    const propsFullPath = path.join(config.runnerWorkspacePath, propsFileName);
     await checkFileExists(propsFullPath);
     await checkReadWriteAccess(config.runnerWorkspacePath);
     await FTL.ensureToolExists();
@@ -59,15 +58,19 @@ export default class FtTestExecuter {
     return exitCode;
   }
 
-  private static async createPropsFile(runtype: string, suffix: string, testPaths: string[], isParallel: boolean = false): Promise<{ propsFullPath: string, resFullPath: string }> {
-    const propsFullPath = path.join(config.runnerWorkspacePath, `props_${suffix}.txt`);
-    const resFullPath = path.join(config.runnerWorkspacePath, `results_${suffix}.xml`);
+  private static async createPropsFile(runtype: string, suffix: string, testPaths: string[], isParallel: boolean = false): Promise<{ propsFileName: string, xmlResFileName: string }> {
+    const propsFileName = `props_${suffix}.txt`;
+    const xmlResFileName = `results_${suffix}.xml`;
+    const propsFullPath = path.join(config.runnerWorkspacePath, propsFileName);
 
-    logger.debug(`createPropsFile: "${propsFullPath}" ...`);
+    logger.debug(`createPropsFile: "${propsFileName}" ...`);
 
     const props: { [key: string]: string } = {
       runType: runtype,
-      resultsFilename: escapePropVal(resFullPath)
+      resultsFilename: xmlResFileName,
+      cancelRunOnFailure: `${config.cancelRunOnFailure}`,
+      resultTestNameOnly: `${config.resultTestNameOnly}`,
+      resultUnifiedTestClassname: `${config.resultUnifiedTestClassname}`
     };
     for (let i = 0; i < testPaths.length; i++) {
       const key = `Test${i + 1}`;
@@ -85,7 +88,7 @@ export default class FtTestExecuter {
       throw new Error('Failed when creating properties file');
     }
 
-    return { propsFullPath, resFullPath };
+    return { propsFileName, xmlResFileName };
   }
 
 }

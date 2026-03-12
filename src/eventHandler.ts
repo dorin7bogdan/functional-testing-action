@@ -88,38 +88,43 @@ export const handleCurrentEvent = async (): Promise<void> => {
 
   async function run(): Promise<ExitCode> {
     logger.debug(`BEGIN run: ...`);
-    let propsFullPath: string | undefined;
-    let resFullPath: string | undefined;
-    let junitFullPath: string | undefined;
+    let propsFileName: string | undefined;
+    let xmlResFileName: string | undefined;
+    let junitFileName: string | undefined;
     try {
       const repoFolderPath = workDir;
 
-      ({ propsFullPath, resFullPath } = await FtTestExecuter.preProcess(runType, testPaths));
-      const exitCode = await FtTestExecuter.process(propsFullPath);
-      junitFullPath = await buildJUnitReport(resFullPath);
-      await uploadArtifacts(propsFullPath, resFullPath, junitFullPath);
+      ({ propsFileName, xmlResFileName } = await FtTestExecuter.preProcess(runType, testPaths));
+      const exitCode = await FtTestExecuter.process(propsFileName);
+      junitFileName = await buildJUnitReport(xmlResFileName);
+      //TODO find and upload the full Report folder with run_results.html and related files
+      await uploadArtifacts(propsFileName, xmlResFileName, junitFileName);
       logger.info(`END run: ExitCode=${exitCode}.`);
       return exitCode;
     } catch (error) {
       logger.error(`run: ${error}`);
       return ExitCode.Aborted;
     } finally {
-      await cleanupTempFiles([propsFullPath, resFullPath].filter((f): f is string => f !== undefined));
+      await cleanupTempFiles([propsFileName, xmlResFileName, junitFileName].filter((f): f is string => f !== undefined));
       logger.error(`END run.`);
     }
   }
 };
 
-const uploadArtifacts = async (propsFullPath: string, resFullPath: string, junitFullPath: string) => {
-  logger.debug(`uploadArtifacts: propsFullPath=[${propsFullPath}], resFullPath=[${resFullPath}], junitFullPath=[${junitFullPath}] ...`);
-  await GitHubClient.uploadArtifact(config.runnerWorkspacePath, [propsFullPath], `props-txt`);
-  await GitHubClient.uploadArtifact(config.runnerWorkspacePath, [resFullPath], `results-xml`);
-  await GitHubClient.uploadArtifact(config.runnerWorkspacePath, [junitFullPath], `junit-xml`);
+const uploadArtifacts = async (propsFileName: string, xmlResFileName: string, junitFileName: string) => {
+  logger.debug(`uploadArtifacts: "${propsFileName}", "${xmlResFileName}", "${junitFileName}" ...`);
+  
+  await Promise.all([
+    GitHubClient.uploadArtifact(config.runnerWorkspacePath, propsFileName, "props-txt"),
+    GitHubClient.uploadArtifact(config.runnerWorkspacePath, xmlResFileName, "results-xml"),
+    GitHubClient.uploadArtifact(config.runnerWorkspacePath, junitFileName, "junit-xml"),
+  ]);
 }
 
-const cleanupTempFiles = async (fullPathFiles: string[]) => {
-  logger.debug(`cleanupTempFiles: ${fullPathFiles.join(', ')} ...`);
-  await Promise.all(fullPathFiles.map(async (fullPathFile) => {
+const cleanupTempFiles = async (fileNames: string[]) => {
+  logger.debug(`cleanupTempFiles: ${fileNames.join(', ')} ...`);
+  await Promise.all(fileNames.map(async (fileName) => {
+    const fullPathFile = path.join(config.runnerWorkspacePath, fileName);
     try {
       await fs.promises.rm(fullPathFile, { force: true });
     } catch (error) {

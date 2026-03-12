@@ -40,42 +40,32 @@ export default class GitHubClient {
   private static octokit = getOctokit(config.githubToken);
   private static artifactClient = new DefaultArtifactClient();
 
-  public static uploadArtifact = async (parentPath: string, paths: string[], artifactName: string, skipInvalidPaths: boolean = true): Promise<number> => {
+  public static uploadArtifact = async (parentPath: string, dirOrFileName: string, artifactName: string): Promise<void> => {
     try {
       let filesToUpload: string[] = [];
-      this.logger.debug(`uploadArtifact: parentPath='${parentPath}', paths.length=${paths.length}, artifactName='${artifactName}' ...`);
+      this.logger.debug(`uploadArtifact: parentPath='${parentPath}', dirOrFileName=${dirOrFileName}, artifactName='${artifactName}' ...`);
 
-      for (const fileOrDirFullPath of paths) {
-        if (!fs.existsSync(fileOrDirFullPath)) {
-          this.logger.error(`Path does not exist: ${fileOrDirFullPath}`);
-          if (!skipInvalidPaths) {
-            throw new Error(`Path does not exist: ${fileOrDirFullPath}`);
-          }
-          continue;
-        }
-        // Determine if the path is a file or directory
-        const stats = fs.statSync(fileOrDirFullPath);
-        if (stats.isFile()) {
-          filesToUpload.push(fileOrDirFullPath);
-        } else if (stats.isDirectory()) { // Recursively collect all files in the directory
-          filesToUpload = filesToUpload.concat(this.walkDir(fileOrDirFullPath));
-        } else {
-          this.logger.error(`Path is neither a file nor a directory: ${fileOrDirFullPath}`);
-          if (!skipInvalidPaths) {
-            throw new Error(`Path is neither a file nor a directory: ${fileOrDirFullPath}`);
-          }
-          continue;
-        }
+      const fullPath = path.isAbsolute(dirOrFileName) ? dirOrFileName : path.join(parentPath, dirOrFileName);
+      if (!fs.existsSync(fullPath)) {
+        this.logger.error(`Path does not exist: ${fullPath}`);
+        return;
+      }
+      // Determine if the path is a file or directory
+      const stats = fs.statSync(fullPath);
+      if (stats.isFile()) {
+        filesToUpload.push(fullPath);
+      } else if (stats.isDirectory()) { // Recursively collect all files in the directory
+        filesToUpload = filesToUpload.concat(this.walkDir(fullPath));
+      } else {
+        this.logger.error(`Path is neither a file nor a directory: ${fullPath}`);
+        return;
       }
 
       this.logger.debug(`Uploading artifact ${artifactName} with ${filesToUpload.length} file(s)`);
       const res = await this.artifactClient.uploadArtifact(artifactName, filesToUpload, parentPath);
-
       this.logger.info(`Artifact ${res.id} uploaded successfully.`);
-      return res.id ?? 0;
     } catch (error) {
       this.logger.error(`uploadArtifact: ${error instanceof Error ? error.message : String(error)}`);
-      return -1;
     }
   };
 

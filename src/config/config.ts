@@ -36,6 +36,8 @@ interface Config {
   testPaths: string[];
   timeout: number;
   cancelRunOnFailure: boolean;
+  resultTestNameOnly: boolean;
+  resultUnifiedTestClassname: boolean;
   labUrl?: string; // Digital Lab server URL
   labExecToken?: string; // Digital Lab execution token
   githubToken: string;
@@ -93,6 +95,8 @@ try {
     testPaths: getUnquotedInputEx('testPaths'),
     timeout: Number.parseInt(getInput('timeout')),
     cancelRunOnFailure: getInput('cancelRunOnFailure').toLowerCase() === 'true',
+    resultTestNameOnly: getInput('resultTestNameOnly').toLowerCase() === 'true',
+    resultUnifiedTestClassname: getInput('resultUnifiedTestClassname').toLowerCase() === 'true',
     labUrl: getInput('labUrl'),
     labExecToken: getInput('labExecToken'),
     githubToken: getInput('githubToken'),
