@@ -65,7 +65,7 @@ export class TestResult {
 
   private add(sr: SuiteResult): void {
     for (const s of this.suites) {
-      if (s.name === sr.name && s.id === sr.id) {
+      if (s.name === sr.name) {
         if (s.timestamp === sr.timestamp) {
           return;
         }

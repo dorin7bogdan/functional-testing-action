@@ -40,7 +40,6 @@ export default class CaseResult {
   public errorStackTrace: string = "";
   public errorDetails: string = "";
   public parent: SuiteResult;
-  public runId: number;
 
   constructor(parent: SuiteResult, attrs: any) {
     let classname = attrs.classname as string ?? parent.name;
@@ -58,13 +57,11 @@ export default class CaseResult {
     this.duration = parseTimeToFloat(attrs.time);
     this.skipped = false;
     this.skippedMessage = null;
-    this.runId = parseInt(attrs.runid ?? 0, 10);
   }
 
   public toXML(indent: number = 2): string {
     const tabs = "\t".repeat(indent);
     let xml = `${tabs}<case>\n`;
-    xml += `${tabs}\t<runId>${this.runId}</runId>\n`;
     xml += `${tabs}\t<duration>${this.duration.toFixed(5)}</duration>\n`;
     xml += `${tabs}\t<className>${escapeXML(this.className)}</className>\n`;
     xml += `${tabs}\t<testName>${escapeXML(this.testName)}</testName>\n`;

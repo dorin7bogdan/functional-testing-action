@@ -37,14 +37,10 @@ const logger: Logger = new Logger('SuiteResult');
 export class SuiteResult {
   public file: string | null = null;
   public name: string = "";
-  public externalAssets: string = "";
-  public enclosingBlocks: string[] = [];
-  public enclosingBlockNames: string[] = [];
   public stdout: string = "";
   public stderr: string = "";
   public cases: CaseResult[] = [];
   public duration: number = 0;
-  public id: string = "";
   private casesByName: Map<string, CaseResult> = new Map<string, CaseResult>();
   private time: string = "";
   public timestamp: string = "";
@@ -61,7 +57,6 @@ export class SuiteResult {
       }
       this.name = name.replace(/[/\\:?#%<>]/g, '_');
       this.file = xmlResFilePath;
-      this.id = attrs.id ?? "";
       this.timestamp = attrs.timestamp ?? "";
       if (attrs.time) {
         this.duration = parseTimeToFloat(attrs.time as string);
@@ -211,8 +206,6 @@ export class SuiteResult {
     let xml = `${tabs}<suite>\n`;
     xml += `${tabs}\t<file>${escapeXML(this.file)}</file>\n`;
     xml += `${tabs}\t<name>${escapeXML(this.name)}</name>\n`;
-    xml += `${tabs}\t<enclosingBlocks>${this.enclosingBlocks.length > 0 ? escapeXML(this.enclosingBlocks.join(",")) : ""}</enclosingBlocks>\n`;
-    xml += `${tabs}\t<enclosingBlockNames>${this.enclosingBlockNames.length > 0 ? escapeXML(this.enclosingBlockNames.join(",")) : ""}</enclosingBlockNames>\n`;
     xml += `${tabs}\t<duration>${this.duration.toFixed(5)}</duration>\n`;
     xml += `${tabs}\t<cases>\n`;
     for (const testCase of this.cases) {
