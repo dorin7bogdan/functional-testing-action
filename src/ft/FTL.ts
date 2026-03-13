@@ -42,7 +42,7 @@ export default class FTL {
   public static readonly MBT = "MBT";
   public static async ensureToolExists(): Promise<void> {
     logger.debug(`ensureToolExists: Checking for ${FTL_EXE} ...`);
-    const runnerWorkspace = config.runnerWorkspacePath;
+    const runnerWorkspace = config.runnerWsPath;
 
     if (!runnerWorkspace) {
       const err = `Missing required environment variable: RUNNER_WORKSPACE`;
@@ -94,7 +94,7 @@ export default class FTL {
       return await new Promise<ExitCode>((resolve, reject) => {
         const launcher = spawn(FTL_EXE, args, {
           stdio: ['ignore', 'pipe', 'pipe'],
-          cwd: config.runnerWorkspacePath, // Set working directory to temp folder
+          cwd: config.runnerWsPath, // Set working directory to temp folder
         });
         launcher.stdout.on('data', (data) => {
           const msg = data?.toString().trim();

@@ -40,7 +40,7 @@ const logger = new Logger('FtTestExecuter');
 export default class FtTestExecuter {
   public static async preProcess(runType: RunType, testPaths: string[]): Promise<{ propsFileName: string, xmlResFileName: string }> {
     logger.debug(`preProcess ...`);
-    await checkReadWriteAccess(config.runnerWorkspacePath);
+    await checkReadWriteAccess(config.runnerWsPath);
     const suffix = getTimestamp();
     const isParallel = runType === RunType.FSParallel;
     const runtype = runType === RunType.ALM ? FTL.Alm : FTL.FileSystem;
@@ -49,9 +49,9 @@ export default class FtTestExecuter {
 
   public static async process(propsFileName: string): Promise<ExitCode> {
     logger.debug(`process: propsFileName = "${propsFileName}" ...`);
-    const propsFullPath = path.join(config.runnerWorkspacePath, propsFileName);
+    const propsFullPath = path.join(config.runnerWsPath, propsFileName);
     await checkFileExists(propsFullPath);
-    await checkReadWriteAccess(config.runnerWorkspacePath);
+    await checkReadWriteAccess(config.runnerWsPath);
     await FTL.ensureToolExists();
     const exitCode = await FTL.runTool(propsFullPath);
     logger.debug(`process: exitCode=${exitCode}`);
@@ -61,7 +61,7 @@ export default class FtTestExecuter {
   private static async createPropsFile(runtype: string, suffix: string, testPaths: string[], isParallel: boolean = false): Promise<{ propsFileName: string, xmlResFileName: string }> {
     const propsFileName = `props_${suffix}.txt`;
     const xmlResFileName = `results_${suffix}.xml`;
-    const propsFullPath = path.join(config.runnerWorkspacePath, propsFileName);
+    const propsFullPath = path.join(config.runnerWsPath, propsFileName);
 
     logger.debug(`createPropsFile: "${propsFileName}" ...`);
 

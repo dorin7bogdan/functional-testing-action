@@ -40,6 +40,7 @@ export default class CaseResult {
   public errorStackTrace: string = "";
   public errorDetails: string = "";
   public parent: SuiteResult;
+  public reportPath: string|undefined;
 
   constructor(parent: SuiteResult, attrs: any) {
     let classname = attrs.classname as string ?? parent.name;
@@ -57,6 +58,7 @@ export default class CaseResult {
     this.duration = parseTimeToFloat(attrs.time);
     this.skipped = false;
     this.skippedMessage = null;
+    this.reportPath = attrs.report;
   }
 
   public toXML(indent: number = 2): string {

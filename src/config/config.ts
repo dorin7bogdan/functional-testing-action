@@ -46,7 +46,7 @@ interface Config {
   repoUrl: string;
   ftlUrl: string;
   logLevel: number;
-  runnerWorkspacePath: string; // Path to the workspace directory process.env.RUNNER_WORKSPACE!
+  runnerWsPath: string; // Path to the workspace directory process.env.RUNNER_WORKSPACE!
   tmpDirPath: string;
 }
 
@@ -105,7 +105,7 @@ try {
     repoUrl: `${serverUrl}/${owner}/${repo}.git`,
     ftlUrl: getInput('ftlUrl'),
     logLevel: Number.parseInt(getInput('logLevel')),
-    runnerWorkspacePath: process.env.RUNNER_WORKSPACE!, // e.g., C:\GitHub_runner\_work\ufto-tests\
+    runnerWsPath: process.env.RUNNER_WORKSPACE!, // e.g., C:\GitHub_runner\_work\ufto-tests\
     tmpDirPath: path.join(process.env.RUNNER_WORKSPACE!, _TMP)
   };
 } catch (error: any) {

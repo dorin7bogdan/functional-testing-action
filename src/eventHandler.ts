@@ -91,14 +91,14 @@ export const handleCurrentEvent = async (): Promise<void> => {
     let propsFileName: string | undefined;
     let xmlResFileName: string | undefined;
     let junitFileName: string | undefined;
+    let reportPaths: string[] = [];
     try {
       const repoFolderPath = workDir;
 
       ({ propsFileName, xmlResFileName } = await FtTestExecuter.preProcess(runType, testPaths));
       const exitCode = await FtTestExecuter.process(propsFileName);
-      junitFileName = await buildJUnitReport(xmlResFileName);
-      //TODO find and upload the full Report folder with run_results.html and related files
-      await uploadArtifacts(propsFileName, xmlResFileName, junitFileName);
+      [junitFileName, reportPaths] = await buildJUnitReport(xmlResFileName);
+      await uploadArtifacts(propsFileName, xmlResFileName, junitFileName, reportPaths);
       logger.info(`END run: ExitCode=${exitCode}.`);
       return exitCode;
     } catch (error) {
@@ -111,20 +111,94 @@ export const handleCurrentEvent = async (): Promise<void> => {
   }
 };
 
-const uploadArtifacts = async (propsFileName: string, xmlResFileName: string, junitFileName: string) => {
-  logger.debug(`uploadArtifacts: "${propsFileName}", "${xmlResFileName}", "${junitFileName}" ...`);
-  
+const sanitizeArtifactSegment = (segment: string): string => {
+  return segment
+    .replace(/[\s\\/:"*?<>|]+/g, '-')  // replace invalid/whitespace chars
+    .replace(/-+/g, '-');              // collapse consecutive hyphens
+}
+
+const resolveRptArtifactNames = (reportPaths: string[]): Map<string, string> => {
+  // Pattern: .../folderX/TestName/ReportX  =>  second-to-last segment is TestName
+  // Split and sanitize all path segments upfront for each path
+  const segments = reportPaths.map(p => {
+    const parts = p.split(/[/\\]/).map(sanitizeArtifactSegment).filter(s => s.length > 0);
+    // testName is second-to-last, ancestors are all segments before it (closest first)
+    const testNameIdx = parts.length >= 2 ? parts.length - 2 : parts.length - 1;
+    const testName = parts[testNameIdx];
+    const ancestors = parts.slice(0, testNameIdx).reverse(); // closest ancestor first
+    return { p, testName, ancestors };
+  });
+
+  // Iteratively build the shortest unique prefix for each path:
+  // Start with just testName, keep prepending the next ancestor until all names are unique
+  const artifactNames = new Map<string, string>(segments.map(s => [s.p, s.testName]));
+
+  for (let depth = 0; ; depth++) {
+    // Group paths by their current candidate name
+    const nameToPath = new Map<string, string[]>();
+    for (const [p, name] of artifactNames) {
+      const group = nameToPath.get(name) ?? [];
+      group.push(p);
+      nameToPath.set(name, group);
+    }
+
+    // Find paths that still share a name with another path
+    const stillDuplicated = new Set<string>();
+    for (const paths of nameToPath.values()) {
+      if (paths.length > 1) {
+        paths.forEach(p => stillDuplicated.add(p));
+      }
+    }
+
+    if (stillDuplicated.size === 0) {
+      break; // All names are unique — done
+    }
+
+    // For still-duplicated paths, try prepending the next ancestor
+    let anyAncestorAvailable = false;
+    for (const { p, ancestors } of segments) {
+      if (!stillDuplicated.has(p)) continue;
+      if (depth < ancestors.length) {
+        anyAncestorAvailable = true;
+        artifactNames.set(p, `${ancestors[depth]}_${artifactNames.get(p)}`);
+      }
+    }
+
+    if (!anyAncestorAvailable) {
+      // Paths are truly identical — append [1], [2], ... as last resort
+      const baseNameIndex = new Map<string, number>();
+      for (const p of stillDuplicated) {
+        const baseName = artifactNames.get(p)!;
+        const idx = (baseNameIndex.get(baseName) ?? 0) + 1;
+        baseNameIndex.set(baseName, idx);
+        artifactNames.set(p, `${baseName}[${idx}]`);
+      }
+      break;
+    }
+  }
+
+  return artifactNames;
+}
+
+const uploadArtifacts = async (propsFileName: string, xmlResFileName: string, junitFileName: string, reportPaths: string[]) => {
+  logger.debug(`uploadArtifacts: "${propsFileName}", "${xmlResFileName}", "${junitFileName}", reportPaths=${reportPaths.length} ...`);
+
+  const rptArtifactNames = resolveRptArtifactNames(reportPaths);
+
   await Promise.all([
-    GitHubClient.uploadArtifact(config.runnerWorkspacePath, propsFileName, "props-txt"),
-    GitHubClient.uploadArtifact(config.runnerWorkspacePath, xmlResFileName, "results-xml"),
-    GitHubClient.uploadArtifact(config.runnerWorkspacePath, junitFileName, "junit-xml"),
+    GitHubClient.uploadArtifact(config.runnerWsPath, propsFileName, "props-txt"),
+    GitHubClient.uploadArtifact(config.runnerWsPath, xmlResFileName, "summary-results-xml"),
+    GitHubClient.uploadArtifact(config.runnerWsPath, junitFileName, "junit-results-xml"),
+    ...reportPaths.map(p =>
+      GitHubClient.uploadArtifact(config.runnerWsPath, p, `${rptArtifactNames.get(p)!}`)
+    ),
   ]);
 }
 
 const cleanupTempFiles = async (fileNames: string[]) => {
   logger.debug(`cleanupTempFiles: ${fileNames.join(', ')} ...`);
   await Promise.all(fileNames.map(async (fileName) => {
-    const fullPathFile = path.join(config.runnerWorkspacePath, fileName);
+    const fullPathFile = path.join(config.runnerWsPath, fileName);
     try {
       await fs.promises.rm(fullPathFile, { force: true });
     } catch (error) {
@@ -171,7 +245,7 @@ const validateAndGetTestPaths = async (): Promise<string[]> => {
     return path.join(config.repo, p);
   });
 
-  const missing: string[] = testPaths.filter(p => !fs.existsSync(path.resolve(config.runnerWorkspacePath, p)));
+  const missing: string[] = testPaths.filter(p => !fs.existsSync(path.resolve(config.runnerWsPath, p)));
   if (missing.length > 0) {
     throw new Error(`The following test paths do not exist:\n${missing.join('\n')}`);
   }
@@ -181,11 +255,18 @@ const validateAndGetTestPaths = async (): Promise<string[]> => {
   return testPaths;
 }
 
-const buildJUnitReport = async (xmlResFileName: string): Promise<string> => {
+const buildJUnitReport = async (xmlResFileName: string): Promise<[string, string[]]> => {
   logger.info(`buildJUnitReport: from "${xmlResFileName}" ...`);
-  const parser = new JUnitParser(path.join(config.runnerWorkspacePath, xmlResFileName));
+  const parser = new JUnitParser(path.join(config.runnerWsPath, xmlResFileName));
   const junitRes = await parser.parseResult();
-  const junitFullPath = path.join(config.runnerWorkspacePath, 'junit-results.xml');
+
+  const reportPaths: string[] = junitRes.suites
+    .flatMap(suite => suite.cases)
+    .map(c => c.reportPath)
+    .filter((p): p is string => !!p);
+
+  const junitFullPath = path.join(config.runnerWsPath, 'junit-results.xml');
   await fs.writeFile(junitFullPath, junitRes.toXML());
-  return junitFullPath;
+  logger.debug(`buildJUnitReport: junitFullPath="${junitFullPath}", reportPaths=${reportPaths.length}`);
+  return [junitFullPath, reportPaths];
 }

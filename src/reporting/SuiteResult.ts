@@ -68,15 +68,14 @@ export class SuiteResult {
   }
 
   public static async parse(xmlFilePath: string, keepLongStdio: boolean): Promise<SuiteResult[]> {
-    const r: SuiteResult[] = [];
-    await this.parseXML(xmlFilePath, keepLongStdio, r);
-    return r;
+    return this.parseXML(xmlFilePath, keepLongStdio);
   }
 
-  private static parseXML(xmlFilePath: string, keepLongStdio: boolean, r: SuiteResult[]): Promise<void> {
+  private static parseXML(xmlFilePath: string, keepLongStdio: boolean): Promise<SuiteResult[]> {
     logger.debug(`parseXML: [${xmlFilePath}], keepLongStdio=${keepLongStdio} ...`);
     return new Promise((resolve, reject) => {
       const parser = sax.createStream(true, { trim: true });
+      const r: SuiteResult[] = [];
 
       let testSuite: SuiteResult | null = null;
       let testCase: CaseResult | null = null;
@@ -99,7 +98,7 @@ export class SuiteResult {
             return;
           }
           testCase = new CaseResult(testSuite, attrs);
-        } else if (nodeName === "error" || nodeName === "failure") {
+        } else if (["error", "failure"].includes(nodeName)) {
           currentText = "";
         } else if (nodeName === "skipped") {
           if (testCase) {
@@ -116,7 +115,7 @@ export class SuiteResult {
             testCase.stdout = this.possiblyTrimStdio(testCase, keepLongStdio, text);
           } else if (nodeName === "system-err") {
             testCase.stderr = this.possiblyTrimStdio(testCase, keepLongStdio, text);
-          } else if ((nodeName === "error" || nodeName === "failure")) {
+          } else if (["error", "failure"].includes(nodeName)) {
             currentText += text;
           }
         }
@@ -129,7 +128,7 @@ export class SuiteResult {
             if (tagName === "testcase") {
               testSuite.addCase(testCase);
               testCase = null;
-            } else if (tagName === "error" || tagName === "failure") {
+            } else if (["error", "failure"].includes(tagName)) {
               testCase.errorStackTrace = currentText;
               if (attrs?.message) {
                 testCase.errorDetails = attrs.message as string;
@@ -151,7 +150,7 @@ export class SuiteResult {
       });
       parser.on('end', () => {
         logger.debug(`parseXML: XML parsing completed.`);
-        resolve();
+        resolve(r);
       });
 
       fs.createReadStream(xmlFilePath).pipe(parser);
