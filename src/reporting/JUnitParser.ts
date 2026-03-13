@@ -33,22 +33,22 @@ const logger: Logger = new Logger('JUnitParser');
 
 export default class JUnitParser {
   private readonly keepLongStdio: boolean;
-  private readonly xmlResFilePath: string;
+  private readonly xmlResFileName: string;
 
-  constructor(xmlResFilePath: string, keepLongStdio: boolean = true) {
+  constructor(xmlResFileName: string, keepLongStdio: boolean = true) {
     this.keepLongStdio = keepLongStdio;
-    this.xmlResFilePath = xmlResFilePath;
+    this.xmlResFileName = xmlResFileName;
   }
 
   public async parseResult(): Promise<TestResult> {
-    logger.info(`parseResult: "${this.xmlResFilePath}" ...`);
+    logger.info(`parseResult: "${this.xmlResFileName}" ...`);
 
-    if (!this.xmlResFilePath) {
+    if (!this.xmlResFileName) {
       return new TestResult();
     }
 
     const testRes = new TestResult(this.keepLongStdio);
-    await testRes.parsePossiblyEmpty(this.xmlResFilePath);
+    await testRes.parsePossiblyEmpty(this.xmlResFileName);
     return testRes;
   }
 }

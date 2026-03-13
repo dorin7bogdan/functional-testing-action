@@ -27,7 +27,6 @@
  * limitations under the License.
  */
 
-import { notice } from '@actions/core';
 import { context } from '@actions/github';
 import { config } from './config/config.js';
 import Logger from './utils/logger.js';
@@ -41,10 +40,10 @@ import { RunType } from './dto/RunType.js';
 import { checkoutRepo } from './utils/utils.js';
 
 const logger: Logger = new Logger('eventHandler');
+const JUNIT_RES_XML = 'junit-results.xml';
 
 export const handleCurrentEvent = async (): Promise<void> => {
   logger.info('BEGIN handleEvent ...');
-  const startTime = new Date().getTime();
 
   if (config.logLevel === 2) {
     for (const [key, value] of Object.entries(process.env)) {
@@ -84,7 +83,7 @@ export const handleCurrentEvent = async (): Promise<void> => {
   //TODO use exitCode ?
 
   logger.info(`END handleEvent. ExitCode=${exitCode}`);
-  // END of handleCurrentEvent function
+  // END of handleCurrentEvent function - the rest are helper functions
 
   async function run(): Promise<ExitCode> {
     logger.debug(`BEGIN run: ...`);
@@ -93,18 +92,17 @@ export const handleCurrentEvent = async (): Promise<void> => {
     let junitFileName: string | undefined;
     let reportPaths: string[] = [];
     try {
-      const repoFolderPath = workDir;
-
       ({ propsFileName, xmlResFileName } = await FtTestExecuter.preProcess(runType, testPaths));
       const exitCode = await FtTestExecuter.process(propsFileName);
-      [junitFileName, reportPaths] = await buildJUnitReport(xmlResFileName);
-      await uploadArtifacts(propsFileName, xmlResFileName, junitFileName, reportPaths);
+      reportPaths = await buildJUnitReport(xmlResFileName);
+      await uploadArtifacts(propsFileName, xmlResFileName, reportPaths);
       logger.info(`END run: ExitCode=${exitCode}.`);
       return exitCode;
     } catch (error) {
       logger.error(`run: ${error}`);
       return ExitCode.Aborted;
     } finally {
+      await cleanupReportFolders(reportPaths);
       await cleanupTempFiles([propsFileName, xmlResFileName, junitFileName].filter((f): f is string => f !== undefined));
       logger.debug(`END run.`);
     }
@@ -180,15 +178,15 @@ const resolveRptArtifactNames = (reportPaths: string[]): Map<string, string> => 
   return artifactNames;
 }
 
-const uploadArtifacts = async (propsFileName: string, xmlResFileName: string, junitFileName: string, reportPaths: string[]) => {
-  logger.debug(`uploadArtifacts: "${propsFileName}", "${xmlResFileName}", "${junitFileName}", reportPaths=${reportPaths.length} ...`);
+const uploadArtifacts = async (propsFileName: string, xmlResFileName: string, reportPaths: string[]) => {
+  logger.debug(`uploadArtifacts: "${propsFileName}", "${xmlResFileName}", reportPaths=${reportPaths.length} ...`);
 
   const rptArtifactNames = resolveRptArtifactNames(reportPaths);
 
   await Promise.all([
     GitHubClient.uploadArtifact(config.runnerWsPath, propsFileName, "props-txt"),
     GitHubClient.uploadArtifact(config.runnerWsPath, xmlResFileName, "summary-results-xml"),
-    GitHubClient.uploadArtifact(config.runnerWsPath, junitFileName, "junit-results-xml"),
+    GitHubClient.uploadArtifact(config.runnerWsPath, JUNIT_RES_XML, "junit-results-xml"),
     ...reportPaths.map(p =>
       GitHubClient.uploadArtifact(config.runnerWsPath, p, `${rptArtifactNames.get(p)!}`)
     ),
@@ -203,6 +201,19 @@ const cleanupTempFiles = async (fileNames: string[]) => {
       await fs.promises.rm(fullPathFile, { force: true });
     } catch (error) {
       logger.warn(`cleanupTempFiles: Failed to delete ${fullPathFile}: ${error}`);
+    }
+  }));
+}
+
+const cleanupReportFolders = async (reportPaths: string[]) => {
+  logger.debug(`cleanupReportFolders: reportPaths.length = ${reportPaths.length} ...`);
+  if (reportPaths.length === 0) return;
+  await Promise.all(reportPaths.map(async (fullPath) => {
+    try {
+      logger.debug(`deleting "${fullPath}" ...`);
+      await fs.promises.rm(fullPath, { recursive: true, force: true });
+    } catch (error) {
+      logger.warn(`cleanupReportFolders: Failed to delete "${fullPath}": ${error}`);
     }
   }));
 }
@@ -227,23 +238,18 @@ const validateAndGetRunType = (): RunType => {
 }
 
 const validateAndGetTestPaths = async (): Promise<string[]> => {
-  if (!config.testPaths) {
+  if (!config.testPaths || config.testPaths.length === 0) {
     throw new Error(`Missing testPaths value`);
   }
 
-  const rawPaths: string[] = config.testPaths;
-
-  if (rawPaths.length === 0) {
-    throw new Error(`Invalid testPaths value '${config.testPaths}'`);
+  // Reject absolute paths — only relative paths based on repository root are allowed
+  const absolutePaths = config.testPaths.filter(p => path.isAbsolute(p));
+  if (absolutePaths.length > 0) {
+    throw new Error(`Absolute paths are not allowed in testPaths. Use paths relative to the repository root:\n${absolutePaths.join('\n')}`);
   }
 
-  const testPaths: string[] = rawPaths.map(p => {
-    if (path.isAbsolute(p)) {
-      return p;
-    }
-    // Relative path: just append the repo name as prefix (e.g., "quicks/test1" => "ufto-tests/quicks/test1")
-    return path.join(config.repo, p);
-  });
+  // Resolve each relative path against the repository root inside the runner workspace
+  const testPaths: string[] = config.testPaths.map(p => path.join(config.repo, p));
 
   const missing: string[] = testPaths.filter(p => !fs.existsSync(path.resolve(config.runnerWsPath, p)));
   if (missing.length > 0) {
@@ -255,7 +261,7 @@ const validateAndGetTestPaths = async (): Promise<string[]> => {
   return testPaths;
 }
 
-const buildJUnitReport = async (xmlResFileName: string): Promise<[string, string[]]> => {
+const buildJUnitReport = async (xmlResFileName: string): Promise<string[]> => {
   logger.info(`buildJUnitReport: from "${xmlResFileName}" ...`);
   const parser = new JUnitParser(path.join(config.runnerWsPath, xmlResFileName));
   const junitRes = await parser.parseResult();
@@ -265,8 +271,8 @@ const buildJUnitReport = async (xmlResFileName: string): Promise<[string, string
     .map(c => c.reportPath)
     .filter((p): p is string => !!p);
 
-  const junitFullPath = path.join(config.runnerWsPath, 'junit-results.xml');
+  const junitFullPath = path.join(config.runnerWsPath, JUNIT_RES_XML);
   await fs.writeFile(junitFullPath, junitRes.toXML());
   logger.debug(`buildJUnitReport: junitFullPath="${junitFullPath}", reportPaths=${reportPaths.length}`);
-  return [junitFullPath, reportPaths];
+  return reportPaths;
 }

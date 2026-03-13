@@ -31,6 +31,7 @@ import * as fs from 'fs';
 import * as sax from 'sax';
 import CaseResult from './CaseResult.js';
 import { escapeXML, parseTimeToFloat } from '../utils/utils.js';
+import * as path from 'path';
 
 const logger: Logger = new Logger('SuiteResult');
 
@@ -45,34 +46,34 @@ export class SuiteResult {
   private time: string = "";
   public timestamp: string = "";
 
-  constructor(xmlResFilePath: string, suite: any | null = null) {
+  constructor(xmlResFileName: string, suite: any | null = null) {
     if (suite) {
       const attrs = suite.attributes;
       let name = attrs.name;
       if (name == null) {
-        name = `(${xmlResFilePath})`;
+        name = `(${xmlResFileName})`;
       } else {
         const pkg = attrs.package;
         pkg && (name = `${pkg}.${name}`);
       }
       this.name = name.replace(/[/\\:?#%<>]/g, '_');
-      this.file = xmlResFilePath;
+      this.file = xmlResFileName;
       this.timestamp = attrs.timestamp ?? "";
       if (attrs.time) {
         this.duration = parseTimeToFloat(attrs.time as string);
       }
     } else {
-      const name = `(${xmlResFilePath})`;
+      const name = `(${xmlResFileName})`;
       this.name = name.replace(/[/\\:?#%<>]/g, '_');
     }
   }
 
-  public static async parse(xmlFilePath: string, keepLongStdio: boolean): Promise<SuiteResult[]> {
-    return this.parseXML(xmlFilePath, keepLongStdio);
+  public static async parse(xmlResFullPath: string, keepLongStdio: boolean): Promise<SuiteResult[]> {
+    return this.parseXML(xmlResFullPath, keepLongStdio);
   }
 
-  private static parseXML(xmlFilePath: string, keepLongStdio: boolean): Promise<SuiteResult[]> {
-    logger.debug(`parseXML: [${xmlFilePath}], keepLongStdio=${keepLongStdio} ...`);
+  private static parseXML(xmlResFullPath: string, keepLongStdio: boolean): Promise<SuiteResult[]> {
+    logger.debug(`parseXML: [${xmlResFullPath}], keepLongStdio=${keepLongStdio} ...`);
     return new Promise((resolve, reject) => {
       const parser = sax.createStream(true, { trim: true });
       const r: SuiteResult[] = [];
@@ -89,7 +90,7 @@ export class SuiteResult {
         nodeName = node.name;
         attrs = node.attributes;
         if (nodeName === "testsuite") {
-          testSuite = new SuiteResult(xmlFilePath, node);
+          testSuite = new SuiteResult(path.basename(xmlResFullPath), node);
           r.push(testSuite); // Add to root result array immediately
           suiteStack.push(testSuite); // Push to stack to track hierarchy
         } else if (nodeName === "testcase") {
@@ -153,7 +154,7 @@ export class SuiteResult {
         resolve(r);
       });
 
-      fs.createReadStream(xmlFilePath).pipe(parser);
+      fs.createReadStream(xmlResFullPath).pipe(parser);
     });
   }
 

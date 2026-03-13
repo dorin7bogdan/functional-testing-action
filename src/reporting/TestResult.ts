@@ -27,6 +27,8 @@
  * limitations under the License.
  */
 import * as fs from 'fs';
+import * as path from 'path';
+import { config } from '../config/config.js';
 import { SuiteResult } from './SuiteResult.js';
 import Logger from '../utils/logger.js';
 
@@ -42,23 +44,24 @@ export class TestResult {
     this.duration = 0;
   }
 
-  public async parsePossiblyEmpty(xmlResFilePath: string): Promise<void> {
-    if (fs.statSync(xmlResFilePath).size === 0) {
-      const sr = new SuiteResult(xmlResFilePath);
+  public async parsePossiblyEmpty(xmlResFileName: string): Promise<void> {
+    const xmlResFullPath = path.join(config.runnerWsPath, xmlResFileName);
+    if (fs.statSync(xmlResFullPath).size === 0) {
+      const sr = new SuiteResult(xmlResFileName);
       this.add(sr);
     } else {
-      await this.parse(xmlResFilePath);
+      await this.parse(xmlResFullPath);
     }
   }
 
-  private async parse(xmlResFilePath: string): Promise<void> {
-    logger.debug(`parse: Parsing XML file "${xmlResFilePath}", keepLongStdio=${this.keepLongStdio} ...`);
+  private async parse(xmlResFullPath: string): Promise<void> {
+    logger.debug(`parse: Parsing XML file "${xmlResFullPath}", keepLongStdio=${this.keepLongStdio} ...`);
     try {
-      for (const suiteResult of await SuiteResult.parse(xmlResFilePath, this.keepLongStdio)) {
+      for (const suiteResult of await SuiteResult.parse(xmlResFullPath, this.keepLongStdio)) {
         this.add(suiteResult);
       }
     } catch (e) {
-      logger.error(`parse: Failed to parse [${xmlResFilePath}]`, e as Error);
+      logger.error(`parse: Failed to parse [${xmlResFullPath}]`, e as Error);
     }
   }
 

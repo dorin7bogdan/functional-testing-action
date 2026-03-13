@@ -6,7 +6,7 @@ inputs:
     required: false
     default: "filesystem"
   testPaths:
-    description: 'Path to the a tests directory or to a specific test folder (i.e. "path\to\folder" or "path\to\GUITest1"). For multiple individual tests you can use an array of paths: ["path\\to\\GUITest1", "path\\to\\GUITest2", ...]. A path can be either absolute or relative. The relative paths will be computed against the repository root.'
+    description: 'Relative path to the a tests directory or to a specific test folder (i.e. "path\to\folder" or "path\to\GUITest1"). For multiple individual tests you can use an array of paths: ["path\\to\\GUITest1", "path\\to\\GUITest2", ...]. Absolute paths are not allowed. The relative paths will be validated against the repository root.'
     required: true
   timeout:
     description: 'The number of seconds before the test run times out.'
