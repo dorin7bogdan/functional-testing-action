@@ -46,9 +46,13 @@ export default class JUnitParser {
     if (!this.xmlResFileName) {
       return new TestResult();
     }
-
-    const testRes = new TestResult(this.keepLongStdio);
-    await testRes.parsePossiblyEmpty(this.xmlResFileName);
-    return testRes;
+    try {
+      const testRes = new TestResult(this.keepLongStdio);
+      await testRes.parsePossiblyEmpty(this.xmlResFileName);
+      return testRes;
+    } catch (err) {
+      logger.error(`parseResult: ${err}`);
+      throw err;
+    }
   }
 }

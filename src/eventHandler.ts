@@ -263,9 +263,9 @@ const validateAndGetTestPaths = async (): Promise<string[]> => {
 
 const buildJUnitReport = async (xmlResFileName: string): Promise<string[]> => {
   logger.info(`buildJUnitReport: from "${xmlResFileName}" ...`);
-  const parser = new JUnitParser(path.join(config.runnerWsPath, xmlResFileName));
+  const parser = new JUnitParser(xmlResFileName);
   const junitRes = await parser.parseResult();
-
+  logger.debug(`buildJUnitReport: parsed ${junitRes.suites.length} suites.`); 
   const reportPaths: string[] = junitRes.suites
     .flatMap(suite => suite.cases)
     .map(c => c.reportPath)
