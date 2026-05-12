@@ -77,10 +77,10 @@ export default class FtTestExecuter {
       props[key] = escapePropVal(testPaths[i]);
     }
 
-    if (config.labUrl && config.labExecToken) {
+/*    if (config.labUrl && config.labExecToken) {
       props["MobileHostAddress"] = config.labUrl;
       props["MobileExecToken"] = config.labExecToken;
-    }
+    }*/
     try {
       await fs.writeFile(propsFullPath, Object.entries(props).map(([k, v]) => `${k}=${v}`).join('\n'));
     } catch (error: any) {

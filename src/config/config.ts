@@ -38,8 +38,7 @@ interface Config {
   cancelRunOnFailure: boolean;
   resultTestNameOnly: boolean;
   resultUnifiedTestClassname: boolean;
-  labUrl?: string; // Digital Lab server URL
-  labExecToken?: string; // Digital Lab execution token
+  archiveReportsAsSingleArtifact: boolean;
   githubToken: string;
   owner: string;
   repo: string;
@@ -97,8 +96,7 @@ try {
     cancelRunOnFailure: getInput('cancelRunOnFailure').toLowerCase() === 'true',
     resultTestNameOnly: getInput('resultTestNameOnly').toLowerCase() === 'true',
     resultUnifiedTestClassname: getInput('resultUnifiedTestClassname').toLowerCase() === 'true',
-    labUrl: getInput('labUrl'),
-    labExecToken: getInput('labExecToken'),
+    archiveReportsAsSingleArtifact: getInput('archiveReportsAsSingleArtifact').toLowerCase() === 'true',
     githubToken: getInput('githubToken'),
     owner: owner,
     repo: repo,

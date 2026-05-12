@@ -186,11 +186,19 @@ const uploadArtifacts = async (propsFileName: string, xmlResFileName: string, re
   await Promise.all([
     GitHubClient.uploadArtifact(config.runnerWsPath, propsFileName, "props-txt"),
     GitHubClient.uploadArtifact(config.runnerWsPath, xmlResFileName, "summary-results-xml"),
-    GitHubClient.uploadArtifact(config.runnerWsPath, JUNIT_RES_XML, "junit-results-xml"),
-    ...reportPaths.map(p =>
-      GitHubClient.uploadArtifact(config.runnerWsPath, p, `${rptArtifactNames.get(p)!}`)
-    ),
+    GitHubClient.uploadArtifact(config.runnerWsPath, JUNIT_RES_XML, "junit-results-xml")
   ]);
+  if (config.archiveReportsAsSingleArtifact) {
+    logger.debug(`uploadArtifacts: Archiving all reports as a single artifact "ft-reports" ...`);
+    await GitHubClient.uploadArtifacts(config.runnerWsPath, reportPaths, "ft-reports")
+  } else {
+    logger.debug(`uploadArtifacts: Archiving all reports as individual artifacts ...`);
+    await Promise.all([
+      ...reportPaths.map(p =>
+        GitHubClient.uploadArtifact(config.runnerWsPath, p, `${rptArtifactNames.get(p)!}`)
+      )
+    ]);
+  }
 }
 
 const cleanupTempFiles = async (fileNames: string[]) => {

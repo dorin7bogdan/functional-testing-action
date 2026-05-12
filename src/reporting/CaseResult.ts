@@ -28,7 +28,9 @@
  */
 import { SuiteResult } from './SuiteResult.js';
 import { escapeXML, parseTimeToFloat } from '../utils/utils.js';
-
+import { config } from '../config/config.js';
+import Logger from '../utils/logger.js';
+const logger = new Logger('CaseResult');
 export default class CaseResult {
   public duration: number;
   public className: string;
@@ -41,7 +43,6 @@ export default class CaseResult {
   public errorDetails: string = "";
   public parent: SuiteResult;
   public reportPath: string|undefined;
-
   constructor(parent: SuiteResult, attrs: any) {
     let classname = attrs.classname as string ?? parent.name;
     let nameAttr = attrs.name;
@@ -58,7 +59,11 @@ export default class CaseResult {
     this.duration = parseTimeToFloat(attrs.time);
     this.skipped = false;
     this.skippedMessage = null;
-    this.reportPath = attrs.report;
+    if (!attrs.report.startsWith(config.runnerWsPath)) {
+      logger.debug(`CaseResult: report path '${attrs.report}' does not start with runnerWsPath '${config.runnerWsPath}'`);
+    }
+    this.reportPath = attrs.report.startsWith(config.runnerWsPath) ? attrs.report.substring(config.runnerWsPath.length) : attrs.report;
+    logger.debug(`CaseResult: className='${this.className}', testName='${this.testName}', duration=${this.duration}, reportPath='${this.reportPath}'`);
   }
 
   public toXML(indent: number = 2): string {

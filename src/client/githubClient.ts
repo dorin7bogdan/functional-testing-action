@@ -69,6 +69,34 @@ export default class GitHubClient {
     }
   };
 
+  public static uploadArtifacts = async (parentPath: string, dirNames: string[], artifactName: string): Promise<void> => {
+    try {
+      let filesToUpload: string[] = [];
+      this.logger.debug(`uploadArtifact: parentPath='${parentPath}', dirNames.length='${dirNames.length}', artifactName='${artifactName}' ...`);
+
+      for (const dirName of dirNames) {
+        const fullPath = path.join(parentPath, dirName);
+        if (!fs.existsSync(fullPath)) {
+          this.logger.error(`Path does not exist: ${fullPath}`);
+          return;
+        }
+        const stats = fs.statSync(fullPath);
+        if (stats.isDirectory()) { // Recursively collect all files in the directory
+          filesToUpload = filesToUpload.concat(this.walkDir(fullPath));
+        } else {
+          this.logger.error(`Path is not a directory: ${fullPath}`);
+          return;
+        }
+      }
+
+      this.logger.debug(`Uploading artifact ${artifactName} with ${filesToUpload.length} file(s)`);
+      const res = await this.artifactClient.uploadArtifact(artifactName, filesToUpload, parentPath);
+      this.logger.info(`Artifact ${res.id} uploaded successfully.`);
+    } catch (error) {
+      this.logger.error(`uploadArtifact: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  };
+
   private static walkDir(dir: string): string[] {
     let results: string[] = [];
     const list = fs.readdirSync(dir);
