@@ -154,7 +154,20 @@ export class SuiteResult {
         resolve(r);
       });
 
-      fs.createReadStream(xmlResFullPath).pipe(parser);
+      //fs.createReadStream(xmlResFullPath).pipe(parser);
+      fs.readFile(xmlResFullPath, 'utf8', (err, data) => {
+        if (err) {
+          logger.error(`parseXML: failed to read file: ${err}`);
+          return reject(err);
+        }
+        try {
+          parser.write(data);
+          parser.end();
+        } catch (writeErr) {
+          logger.error(`parseXML: failed to parse XML: ${writeErr}`);
+          reject(writeErr);
+        }
+      });
     });
   }
 

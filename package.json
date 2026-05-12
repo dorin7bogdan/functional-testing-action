@@ -23,34 +23,34 @@
   ],
   "license": "Apache-2.0",
   "dependencies": {
-    "@actions/artifact": "^2.3.2",
-    "@actions/core": "^3.0.0",
+    "@actions/artifact": "^6.2.1",
+    "@actions/core": "^3.0.1",
     "@actions/exec": "^3.0.0",
-    "@actions/github": "^9.0.0",
-    "@xmldom/xmldom": "^0.9.8",
-    "fs-extra": "^11.3.3",
-    "sax": "^1.4.4",
+    "@actions/github": "^9.1.1",
+    "@xmldom/xmldom": "^0.9.10",
+    "fs-extra": "^11.3.5",
+    "sax": "^1.6.0",
     "tsx": "^4.21.0",
     "xml2js": "^0.6.2",
     "xmlbuilder": "^15.1.1",
-    "yaml": "^3.0.0-0"
+    "yaml": "^3.0.0-1"
   },
   "overrides": {
     "@octokit/endpoint": "11.0.0",
     "@octokit/request": "10.0.8",
     "@octokit/plugin-paginate-rest": "14.0.0",
     "@octokit/request-error": "7.1.0",
-    "undici": "7.22.0"
+    "undici": "8.2.0"
   },
   "devDependencies": {
     "@types/fs-extra": "^11.0.4",
-    "@types/node": "24.10.14",
+    "@types/node": "^24.12.4",
     "@types/sax": "^1.2.7",
     "@types/xml2js": "^0.4.14",
     "@vercel/ncc": "^0.38.4",
     "lint-staged": "^15.4.3",
     "ts-node": "^10.9.2",
-    "typescript": "^5.9.3"
+    "typescript": "^6.0.3"
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx,css}": "prettier --write"
