@@ -89,7 +89,6 @@ export const handleCurrentEvent = async (): Promise<void> => {
     logger.debug(`BEGIN run: ...`);
     let propsFileName: string | undefined;
     let xmlResFileName: string | undefined;
-    let junitFileName: string | undefined;
     let reportPaths: string[] = [];
     try {
       ({ propsFileName, xmlResFileName } = await FtTestExecuter.preProcess(runType, testPaths));
@@ -103,7 +102,7 @@ export const handleCurrentEvent = async (): Promise<void> => {
       return ExitCode.Aborted;
     } finally {
       await cleanupReportFolders(reportPaths);
-      await cleanupTempFiles([propsFileName, xmlResFileName, junitFileName].filter((f): f is string => f !== undefined));
+      await cleanupTempFiles([propsFileName, xmlResFileName, JUNIT_RES_XML].filter((f): f is string => f !== undefined));
       logger.debug(`END run.`);
     }
   }

@@ -60,7 +60,7 @@ export default class CaseResult {
     this.skipped = false;
     this.skippedMessage = null;
     if (!attrs.report.startsWith(config.runnerWsPath)) {
-      logger.debug(`CaseResult: report path '${attrs.report}' does not start with runnerWsPath '${config.runnerWsPath}'`);
+      logger.warn(`CaseResult: report path '${attrs.report}' does not start with runnerWsPath '${config.runnerWsPath}'`);
     }
     this.reportPath = attrs.report.startsWith(config.runnerWsPath) ? attrs.report.substring(config.runnerWsPath.length) : attrs.report;
     logger.debug(`CaseResult: className='${this.className}', testName='${this.testName}', duration=${this.duration}, reportPath='${this.reportPath}'`);
