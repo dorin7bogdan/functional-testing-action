@@ -215,7 +215,8 @@ const cleanupTempFiles = async (fileNames: string[]) => {
 const cleanupReportFolders = async (reportPaths: string[]) => {
   logger.debug(`cleanupReportFolders: reportPaths.length = ${reportPaths.length} ...`);
   if (reportPaths.length === 0) return;
-  await Promise.all(reportPaths.map(async (fullPath) => {
+  await Promise.all(reportPaths.map(async (relativePath) => {
+    const fullPath = path.join(config.runnerWsPath, relativePath);
     try {
       logger.debug(`deleting "${fullPath}" ...`);
       await fs.promises.rm(fullPath, { recursive: true, force: true });
